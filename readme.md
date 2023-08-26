@@ -15,7 +15,7 @@ DEVICE=COMDSK.SYS
 in config.sys.
 
 Before accessing drive C then, start the linux backend
-(main.c) with
+(serdev/main.c) with
 
 ```
 ./a.out /dev/pts/4 disk.img
