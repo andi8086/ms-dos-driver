@@ -26,7 +26,7 @@ int set_iface_attribs(int fd, int speed, int parity)
         tty.c_lflag = 0;
         tty.c_oflag = 0;
         tty.c_cc[VMIN] = 0;
-        tty.c_cc[VTIME] = 5;
+        tty.c_cc[VTIME] = 50;
         tty.c_iflag &= ~(IXON | IXOFF | IXANY);
         tty.c_cflag |= (CLOCAL | CREAD);
         tty.c_cflag &= ~(PARENB | PARODD);
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
                 return -1;
         }
 
-        set_iface_attribs(fd, B9600, 0);
+        set_iface_attribs(fd, B19200, 0);
         set_blocking(fd, 1);
 
         int rlen;

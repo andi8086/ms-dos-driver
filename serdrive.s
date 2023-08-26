@@ -362,6 +362,24 @@ init:
         mov dx, 0
         int 14h
 
+        ; set baudrate to 19200 (which is impossible with BIOS)
+        cli
+        mov dx, 0x3FB
+        in al, dx
+        or al, 0x80    ; set baud rate, 8 bits
+        out dx, al
+        mov dx, 0x3F8
+        mov al, 6       ; 115200 / 19200 = 6
+        out dx, al
+        inc dx
+        xor al, al
+        out dx, al
+
+        mov dx, 0x3FB
+        in al, dx
+        and al, 0x7F
+        out dx, al
+        sti
         jmp interrupt.exit
 
 install_msg db "SerDrive 0.1 Alpha, (C)2023 A.J.Reichel", 0x0D, 0x0A, '$'
