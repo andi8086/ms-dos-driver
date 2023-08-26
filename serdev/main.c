@@ -56,7 +56,7 @@ void set_blocking(int fd, int should_block)
         }
 
         tty.c_cc[VMIN] = should_block ? 1 : 0;
-        tty.c_cc[VTIME] = 5;
+        tty.c_cc[VTIME] = 50;
 
         if (tcsetattr(fd, TCSANOW, &tty) != 0) {
                 perror("error from tcsetattr");
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
         uint16_t sector;
         uint16_t count;
 
-        FILE *f = fopen(argv[2], "r");
+        FILE *f = fopen(argv[2], "r+");
         uint32_t pos = 0;
 
         char buffer[512];
@@ -149,13 +149,65 @@ int main(int argc, char **argv)
 
                                 /* transmit 512 bytes */
                                 for (int i = 0; i < 512; i++) {
-                                        usleep(500);
-                                        write(fd, &buffer[i], 1);
+                                        // usleep(500);
+                                        while (write(fd, &buffer[i], 1)== 0);
                                 }
                                 count -= 1;
                         } while(count);
                 }
+                else if (cmd == 'W') {
+                        printf("write cmd\n");
+                        do {
+                                rlen = read(fd, &sector_low, 1);
+                        } while (rlen == 0);
+                        if (rlen < 0) {
+                                printf("error SL\n");
+                                continue;
+                        }
+                        do {
+                                rlen = read(fd, &sector_high, 1);
+                        } while (rlen == 0);
+                        if (rlen < 0) {
+                                printf("error SH\n");
+                                continue;
+                        }
+                        do {
+                                rlen = read(fd, &count_low, 1);
+                        } while (rlen == 0);
+                        if (rlen < 0) {
+                                printf("error CL\n");
+                                continue;
+                        }
+                        do {
+                                rlen = read(fd, &count_high, 1);
+                        } while (rlen == 0);
+                        if (rlen < 0) {
+                                printf("error CH\n");
+                                continue;
+                        }
+                        sector = ((uint16_t)sector_high << 8) | sector_low;
+                        count = ((uint16_t)count_high << 8) | count_low;
+                        printf("write %d sectors, start = %u\n", count, sector);
+                        pos = sector * 512;
+                        uint8_t byte;
+     
+                        byte = 'K';
+                        write(fd, &byte, 1);
 
+                        fseek(f, pos, SEEK_SET);
+
+                        do {
+                                /* transmit 512 bytes */
+                                for (int i = 0; i < 512; i++) {
+                                        // usleep(500);
+                                        while (read(fd, &buffer[i], 1) == 0);
+                                }
+
+                                fwrite(buffer, 512, 1, f);
+
+                                count -= 1;
+                        } while(count);
+                }
         } while (true);
 
         close(fd);

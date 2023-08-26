@@ -47,6 +47,14 @@ struc readreq
         .startsec: resw 1
 endstruc
 
+struc writereq
+        .hdr: resb drivereq_size
+        .mediadesc: resb 1
+        .dta: resd 1
+        .count: resw 1
+        .startsec: resw 1
+endstruc
+
 %define ATTR_BLKDEV  (0 << 15)
 %define ATTR_CHARDEV (1 << 15)
 %define ATTR_IOCTL   (1 << 14)
@@ -173,78 +181,70 @@ read:
 
         mov al, 'R'     ; tell host we want to read
         mov ah, 1
-        mov dx, 0
+        mov dx, 0       ; COM 1
         int 14h
         test ah, 80h
-        jnz read_error
+        jnz read.error
 
         ; send required sector number
         mov al, byte [es:di + readreq.startsec]
         mov ah, 1
-        mov dx, 0
         int 14h
         test ah, 80h
-        jnz read_error
+        jnz read.error
 
         mov al, byte [es:di + readreq.startsec + 1]
         mov ah, 1
-        mov dx, 0
         int 14h
         test ah, 80h
-        jnz read_error
+        jnz read.error
 
         mov ax, bp
         mov ah, 1
-        mov dx, 0
         int 14h
         test ah, 80h
-        jnz read_error
+        jnz read.error
 
         mov ax, bp
         xchg al, ah
         mov ah, 1
-        mov dx, 0
         int 14h
         test ah, 80h
-        jnz read_error
-
+        jnz read.error
 
         ; wait for ACK
         mov ah, 2
-        mov dx, 0
         int 14h
         test ah, 80h
-        jnz read_error
+        jnz read.error
         cmp al, SERDRIVE_ACK
-        jne read_error
+        jne read.error
 
         push es
         push di
 
         les di, [es:di + readreq.dta]
         mov si, bp
-next_sector:
+.next_sector:
         mov cx, 512
-serial_read:
-        mov dx, 0
+.serial:
         mov ah, 2
         int 14h
         test ah, 80h
-        jnz read_error
+        jnz read.error
 
         stosb
-        loop serial_read 
+        loop read.serial 
 
         dec si
         cmp si, 0
-        jnz next_sector
+        jnz read.next_sector
 
         pop di
         pop es
 
-#         mov word [bp], 1        ; set count to 1 sector
         jmp interrupt.exit
-read_error:
+.error:
         pop di
         pop es
 
@@ -253,6 +253,88 @@ read_error:
         jmp interrupt.err
 
 write:
+        mov bp, [es:di + writereq.count]
+
+        cld
+
+        mov al, 'W'     ; tell host we want to write
+        mov ah, 1
+        mov dx, 0       ; COM 1
+        int 14h
+        test ah, 80h
+        jnz write.error
+
+        ; send required sector number
+        mov al, byte [es:di + writereq.startsec]
+        mov ah, 1
+        int 14h
+        test ah, 80h
+        jnz write.error
+
+        mov al, byte [es:di + writereq.startsec + 1]
+        mov ah, 1
+        int 14h
+        test ah, 80h
+        jnz write.error
+
+        mov ax, bp
+        mov ah, 1
+        int 14h
+        test ah, 80h
+        jnz write.error
+
+        mov ax, bp
+        xchg al, ah
+        mov ah, 1
+        int 14h
+        test ah, 80h
+        jnz write.error
+
+
+        ; wait for ACK
+        mov ah, 2
+        int 14h
+        test ah, 80h
+        jnz write.error
+        cmp al, SERDRIVE_ACK
+        jne write.error
+
+        push ds
+        push si
+        push di
+
+        lds si, [es:di + writereq.dta]
+        mov di, bp
+.next_sector:
+        mov cx, 512
+.serial:
+
+        lodsb   ; load one byte from DTA
+
+        mov ah, 1
+        int 14h
+        test ah, 80h
+        jnz write.error
+
+        loop write.serial
+
+        dec di
+        cmp di, 0
+        jnz write.next_sector
+
+        pop di
+        pop si
+        pop ds
+
+        jmp interrupt.exit
+.error:
+        pop di
+        pop si
+        pop ds
+
+        mov al, ERR_WRITE_FAULT
+        mov word [es:di + writereq.count], 0
+        jmp interrupt.err
         jmp interrupt.exit
 
 
