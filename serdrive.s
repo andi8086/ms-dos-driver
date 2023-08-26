@@ -362,20 +362,35 @@ init:
         mov dx, 0
         int 14h
 
+        push ds
+        push si
+
+        mov ax, 40h
+        mov ds, ax
+        mov si, 0h
+
+        lodsw           ; ax is COM1 port base
+        pop si
+        pop ds
+
+        add ax, 3
+        mov word [cs:serial_port], ax 
         ; set baudrate to 19200 (which is impossible with BIOS)
         cli
-        mov dx, 0x3FB
+        mov dx, word [cs:serial_port] 
         in al, dx
         or al, 0x80    ; set baud rate, 8 bits
         out dx, al
-        mov dx, 0x3F8
+        sub dx, 3
+;        mov dx, 0x3F8
         mov al, 6       ; 115200 / 19200 = 6
         out dx, al
         inc dx
         xor al, al
         out dx, al
-
-        mov dx, 0x3FB
+        inc dx
+        inc dx
+;        mov dx, 0x3FB
         in al, dx
         and al, 0x7F
         out dx, al
@@ -384,5 +399,5 @@ init:
 
 install_msg db "SerDrive 0.1 Alpha, (C)2023 A.J.Reichel", 0x0D, 0x0A, '$'
 
-
+serial_port dw 0
 
