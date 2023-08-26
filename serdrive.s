@@ -174,48 +174,54 @@ build_bpb:
         mov word [es:di + bpbreq.bpb + 2], cs
         jmp interrupt.exit
 
+write_s:
+        mov ah, 1
+        int 14h
+        test ah, 80h
+        ret
+
+read_s:
+        mov ah, 2
+        int 14h
+        test ah, 80h
+        ret
+
+send_rw_params:
+        ; send required sector number
+        mov al, byte [es:di + readreq.startsec]
+        call write_s
+        jnz .error
+
+        mov al, byte [es:di + readreq.startsec + 1]
+        call write_s
+        jnz .error
+
+        mov ax, bp
+        call write_s
+        jnz .error
+
+        mov ax, bp
+        xchg al, ah
+        call write_s
+.error:
+        ret
+
+
 read:
         mov bp, [es:di + readreq.count]
 
         cld
 
-        mov al, 'R'     ; tell host we want to read
-        mov ah, 1
         mov dx, 0       ; COM 1
-        int 14h
-        test ah, 80h
+        mov al, 'R'     ; tell host we want to read
+        call write_s
         jnz read.error
 
-        ; send required sector number
-        mov al, byte [es:di + readreq.startsec]
-        mov ah, 1
-        int 14h
-        test ah, 80h
-        jnz read.error
-
-        mov al, byte [es:di + readreq.startsec + 1]
-        mov ah, 1
-        int 14h
-        test ah, 80h
-        jnz read.error
-
-        mov ax, bp
-        mov ah, 1
-        int 14h
-        test ah, 80h
-        jnz read.error
-
-        mov ax, bp
-        xchg al, ah
-        mov ah, 1
-        int 14h
-        test ah, 80h
+        call send_rw_params
         jnz read.error
 
         ; wait for ACK
-        mov ah, 2
-        int 14h
-        test ah, 80h
+        call read_s
         jnz read.error
         cmp al, SERDRIVE_ACK
         jne read.error
@@ -228,17 +234,15 @@ read:
 .next_sector:
         mov cx, 512
 .serial:
-        mov ah, 2
-        int 14h
-        test ah, 80h
-        jnz read.error
+        call read_s
+        jnz .error
 
         stosb
-        loop read.serial 
+        loop .serial 
 
         dec si
         cmp si, 0
-        jnz read.next_sector
+        jnz .next_sector
 
         pop di
         pop es
@@ -252,52 +256,26 @@ read:
         mov word [es:di + readreq.count], 0
         jmp interrupt.err
 
+
 write:
         mov bp, [es:di + writereq.count]
 
         cld
 
-        mov al, 'W'     ; tell host we want to write
-        mov ah, 1
         mov dx, 0       ; COM 1
-        int 14h
-        test ah, 80h
-        jnz write.error
 
-        ; send required sector number
-        mov al, byte [es:di + writereq.startsec]
-        mov ah, 1
-        int 14h
-        test ah, 80h
-        jnz write.error
+        mov al, 'W'     ; tell host we want to write
+        call write_s
+        jnz .error
 
-        mov al, byte [es:di + writereq.startsec + 1]
-        mov ah, 1
-        int 14h
-        test ah, 80h
-        jnz write.error
-
-        mov ax, bp
-        mov ah, 1
-        int 14h
-        test ah, 80h
-        jnz write.error
-
-        mov ax, bp
-        xchg al, ah
-        mov ah, 1
-        int 14h
-        test ah, 80h
-        jnz write.error
-
+        call send_rw_params
+        jnz .error
 
         ; wait for ACK
-        mov ah, 2
-        int 14h
-        test ah, 80h
-        jnz write.error
+        call read_s
+        jnz .error
         cmp al, SERDRIVE_ACK
-        jne write.error
+        jne .error
 
         push ds
         push si
@@ -311,16 +289,14 @@ write:
 
         lodsb   ; load one byte from DTA
 
-        mov ah, 1
-        int 14h
-        test ah, 80h
-        jnz write.error
+        call write_s
+        jnz .error
 
-        loop write.serial
+        loop .serial
 
         dec di
         cmp di, 0
-        jnz write.next_sector
+        jnz .next_sector
 
         pop di
         pop si
@@ -335,7 +311,6 @@ write:
         mov al, ERR_WRITE_FAULT
         mov word [es:di + writereq.count], 0
         jmp interrupt.err
-        jmp interrupt.exit
 
 
 bpb:
@@ -353,6 +328,9 @@ bpb:
 bpb_array:              dw bpb
                         dw 0 
 
+; *********************** SUICIDE FENCE *************************
+; code below here will be destroyed after init
+; ***************************************************************
 res_end:
 init:
         push cs
