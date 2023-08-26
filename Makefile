@@ -1,10 +1,10 @@
-all: SKEL.SYS READDEV.COM SERDRIVE.SYS
+all: SKEL.SYS READDEV.COM COMDSK.SYS
 
 SKEL.SYS: skel.s
 	yasm -p nasm $< -o $@ 
 	mcopy -o -i dos.img $@ ::/
 
-SERDRIVE.SYS: serdrive.s
+COMDSK.SYS: comdsk.s
 	yasm -p nasm $< -o $@ 
 	mcopy -o -i dos.img $@ ::/
 

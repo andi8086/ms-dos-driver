@@ -1,0 +1,3 @@
+[submodule "dosretro"]
+	path = dosretro
+	url = https://github.com/pcdosretro/PCDOSRetro.github.io
