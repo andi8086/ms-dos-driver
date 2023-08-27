@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "ui_floppy.h"
 
 
 int set_iface_attribs(int fd, int speed, int parity)

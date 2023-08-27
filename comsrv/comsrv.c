@@ -11,6 +11,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <SDL.h>
+#include <SDL_mixer.h>
+
+#include "ui_floppy.h"
+
+
+int floppy_old_track = 0;
+
 
 int set_iface_attribs(int fd, int speed, int parity)
 {
@@ -29,7 +37,7 @@ int set_iface_attribs(int fd, int speed, int parity)
         tty.c_lflag = 0;
         tty.c_oflag = 0;
         tty.c_cc[VMIN] = 0;
-        tty.c_cc[VTIME] = 50;
+        tty.c_cc[VTIME] = 5;
         tty.c_iflag &= ~(IXON | IXOFF | IXANY);
         tty.c_cflag |= (CLOCAL | CREAD);
         tty.c_cflag &= ~(PARENB | PARODD);
@@ -59,7 +67,7 @@ void set_blocking(int fd, int should_block)
         }
 
         tty.c_cc[VMIN] = should_block ? 1 : 0;
-        tty.c_cc[VTIME] = 50;
+        tty.c_cc[VTIME] = 5;
 
         if (tcsetattr(fd, TCSANOW, &tty) != 0) {
                 perror("error from tcsetattr");
@@ -102,7 +110,22 @@ int init_header(FILE *diskfile)
         return 0;
 }
 
-int read_sectors(int fd, FILE *diskfile)
+Mix_Chunk *floppy_sound = NULL;
+
+void floppy_seek(int cyl)
+{
+        if (cyl == floppy_old_track) {
+                return; 
+        }
+
+        int chan = Mix_PlayChannel(-1, floppy_sound,
+                        (int)fabs((double)(floppy_old_track - cyl)*0.2));
+        while (Mix_Playing(chan));
+        floppy_old_track = cyl;
+}
+
+
+int read_sectors(int fd, FILE *diskfile, SDL_Renderer *renderer)
 {
 
         uint8_t value;
@@ -140,7 +163,9 @@ int read_sectors(int fd, FILE *diskfile)
         int lsector = (cyl * h.heads + head) * h.sectors_per_track +
                       sector - 1;
         fseek(diskfile, lsector * 512 + sizeof(h), SEEK_SET);
-
+        floppy_seek(cyl);
+        sdl_draw_floppy(renderer, 400, 300, 280, h.cylinders, cyl);
+        SDL_RenderPresent(renderer);
         for (int j = 0; j < num; j++) {
                 fread(buffer, 512, 1, diskfile);
                 for (int i = 0; i < 512; i++) {
@@ -151,7 +176,6 @@ int read_sectors(int fd, FILE *diskfile)
                         } while (wl != 1);
                 }
         }
-        printf("%u sectors sent\n", num);
 }
 
 
@@ -296,14 +320,56 @@ int main(int argc, char **argv)
         }
         FILE *hddfile = fopen(argv[3], "r+");
 
-        do {
+        if (!diskfile) {
+                goto no_floppy_ui;
+        }
+
+        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
+                return 1;
+        }
+
+        Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
+        floppy_sound = Mix_LoadWAV("servo3.wav");
+
+        SDL_Window *screen = SDL_CreateWindow("My App",
+                0, 0, 800, 600, SDL_WINDOW_SHOWN);
+        if (!screen) {
+                return 2;
+        }
+        SDL_Renderer *renderer = SDL_CreateRenderer(screen, -1,
+                SDL_RENDERER_ACCELERATED);
+        if (!renderer) {
+                return 3;
+        }
+        atexit(SDL_Quit);
+
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+
+no_floppy_ui:
+        bool quit = false;
+
+        while (!quit) {
+                if (diskfile) {
+                        SDL_RenderPresent(renderer);
+                        SDL_Event event;
+                        while (SDL_PollEvent(&event)) {
+                                switch (event.type) {
+                                case SDL_QUIT:
+                                        quit = true;
+                                        break;
+                                default:
+                                        break;
+                                }
+                        }
+                }
                 cmd = 0;
                 rlen = read(fd, &cmd, 1);
                 if (rlen <= 0) {
                         continue;
                 }
                 switch (cmd) {
-                case 'r': read_sectors(fd, diskfile); 
+                case 'r': read_sectors(fd, diskfile, renderer); 
                         break;
                 case 'R': read_hdd(fd, hddfile);
                         break;
@@ -313,10 +379,13 @@ int main(int argc, char **argv)
                         printf("command: %c\n", (uint8_t)cmd);
                         break;
                 }
-        } while (true);
+        }
         fclose(hddfile);
         if (diskfile) {
                 fclose(diskfile);
+                Mix_FreeChunk(floppy_sound);
+                SDL_DestroyWindow(screen);
+                SDL_Quit();
         }
         close(fd);
         return 0;
