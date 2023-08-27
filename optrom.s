@@ -66,7 +66,7 @@ print:  mov ah, 0Eh
 exit_print:
         ret
 
-bios_msg: db "SerDisk Boot Rom, v0.1 - (C) 2023/08/26 Andreas J. Reichel",
+bios_msg: db "COMDSK Boot Rom, v0.1 - (C) 2023/08/27 Andreas J. Reichel",
           db 0Ah, 0Dh, 00h
 
 modint13:
