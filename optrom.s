@@ -105,6 +105,7 @@ old_int14:
 
 custom_int13:
         push si
+        pushf
         push ax
         xchg al, ah
         mov si, ax
@@ -116,9 +117,11 @@ custom_int13:
         ja .invalid_cmd
         jmp [cs:.fntable + si]
 .exit:
+        popf
         clc
         jmp .return
 .invalid_cmd:
+        popf
         stc
 .return:
         pop si
