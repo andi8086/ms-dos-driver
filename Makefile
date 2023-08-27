@@ -1,4 +1,8 @@
-all: SKEL.SYS READDEV.COM COMDSK.SYS COMDSKI.SYS OPTROM.BIN
+all: cksum SKEL.SYS READDEV.COM COMDSK.SYS COMDSKI.SYS OPTROM.BIN
+
+
+cksum: cksum.c
+	gcc $< -o $@
 
 SKEL.SYS: skel.s
 	yasm -p nasm $< -o $@ 
