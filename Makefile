@@ -1,4 +1,4 @@
-all: SKEL.SYS READDEV.COM COMDSK.SYS
+all: SKEL.SYS READDEV.COM COMDSK.SYS OPTROM.BIN
 
 SKEL.SYS: skel.s
 	yasm -p nasm $< -o $@ 
@@ -11,4 +11,8 @@ COMDSK.SYS: comdsk.s
 READDEV.COM: readdev.s
 	yasm -p nasm $< -o $@ 
 	mcopy -o -i dos.img $@ ::/
+
+OPTROM.BIN: optrom.s
+	yasm -p nasm $< -o $@ 
+	./cksum $@
 
