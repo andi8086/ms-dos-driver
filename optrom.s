@@ -185,7 +185,7 @@ read_sectors:
         push dx
         push bx
         push ax
-        mov al, 'R'
+        mov al, 'r'
         call write_s
         pop ax          ; sectors to read
         mov bp, ax
@@ -225,7 +225,7 @@ read_sectors:
         jmp custom_int13.exit
         
 write_sectors:
-        mov al, 'W'
+        mov al, 'w'
         call write_s
         jmp custom_int13.exit
 

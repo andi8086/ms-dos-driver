@@ -180,7 +180,7 @@ int main(int argc, char **argv)
                         continue;
                 }
                 switch (cmd) {
-                case 'R': read_sectors(fd, diskfile); 
+                case 'r': read_sectors(fd, diskfile); 
                         break;
                 default:
                         printf("command: %c\n", (uint8_t)cmd);
