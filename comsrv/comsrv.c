@@ -120,7 +120,7 @@ void floppy_seek(int cyl)
 
         int chan = Mix_PlayChannel(-1, floppy_sound,
                         (int)fabs((double)(floppy_old_track - cyl)*0.2));
-        while (Mix_Playing(chan));
+     //   while (Mix_Playing(chan));
         floppy_old_track = cyl;
 }
 
