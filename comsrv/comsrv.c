@@ -76,14 +76,30 @@ typedef struct {
 
 fheader_t h;
 
-void init_header(FILE *diskfile)
+int init_header(FILE *diskfile)
 {
+        fseek(diskfile, 0, SEEK_END);
+        uint32_t pos = ftell(diskfile) - 6;
+        if (pos != 1024*160 && pos != 1024*180 &&
+            pos != 1024*320 && pos != 1024*360 &&
+            pos != 1024*720 && pos != 1024*1200 &
+            pos != 1024*1440) {
+                printf("Invalid floppy image format\n");
+                return -1;
+        }
+        fseek(diskfile, 0, SEEK_SET);
+
         fread(&h, sizeof(h), 1, diskfile);
-        printf("cylinders:      %d\n", h.cylinders);
-        printf("heads:          %d\n", h.heads);
+        printf("------------------------------------\n");
+        printf("Floppy image:\n");
+        printf("cylinders:         %d\n", h.cylinders);
+        printf("heads:             %d\n", h.heads);
         printf("sectors per track: %d\n", h.sectors_per_track);
-        printf("capacity:       %d bytes\n", h.sectors * 512);
+        printf("capacity:          %d bytes\n", h.sectors * 512);
+        printf("------------------------------------\n");
         printf("\n");
+
+        return 0;
 }
 
 int read_sectors(int fd, FILE *diskfile)
@@ -232,6 +248,11 @@ void write_hdd(int fd, FILE *hddfile)
 
 int main(int argc, char **argv)
 {
+        printf("COMSRV - Serial FDD and HDD emulator\n");
+        printf(" For COMDRV option ROM and COMDRV.SYS DOS driver\n");
+        printf(" v0.1 Beta, (C)2023 Andreas. J. Reichel\n");
+        printf(" MIT License\n\n");
+
         int fd;
 
         fd = open(argv[1], O_RDWR | O_NOCTTY | O_SYNC);
@@ -260,9 +281,20 @@ int main(int argc, char **argv)
 
         uint32_t pos = 0;
 
-        FILE *diskfile = fopen(argv[2], "r+");
+        FILE *diskfile = NULL;
+
+        if (strcmp(argv[2], "-") != 0) {
+                diskfile = fopen(argv[2], "r+");
+                if (!diskfile) {
+                        printf("Error, could not load floppy image\n");
+                } else {
+                        if (init_header(diskfile) != 0) {
+                                fclose(diskfile);
+                                diskfile = NULL;
+                        }
+                }
+        }
         FILE *hddfile = fopen(argv[3], "r+");
-        init_header(diskfile);
 
         do {
                 cmd = 0;
@@ -283,7 +315,9 @@ int main(int argc, char **argv)
                 }
         } while (true);
         fclose(hddfile);
-        fclose(diskfile);
+        if (diskfile) {
+                fclose(diskfile);
+        }
         close(fd);
         return 0;
 }
