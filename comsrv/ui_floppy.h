@@ -8,7 +8,7 @@
 
 
 void sdl_draw_floppy(SDL_Renderer *renderer, int x, int y, int r,
-                     int num_tracks, int curr_track);
+                     int num_tracks, int curr_track, bool write);
 
 
 #endif

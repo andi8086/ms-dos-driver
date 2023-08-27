@@ -54,7 +54,7 @@ static void sdl_draw_circle(SDL_Renderer *renderer, int x, int y, int r)
 
 
 void sdl_draw_floppy(SDL_Renderer *renderer, int x, int y, int r,
-                     int num_tracks, int curr_track)
+                     int num_tracks, int curr_track, bool write)
 {
         int tracks = num_tracks;
 
@@ -65,18 +65,23 @@ void sdl_draw_floppy(SDL_Renderer *renderer, int x, int y, int r,
         double sr = (double)start_r;
         SDL_SetRenderDrawColor(renderer, 150, 150, 100, 255);
         sdl_draw_circle(renderer, x, y, (int)sr);
-        sr -= dr;
+        sr -= 3.0*dr;
         while (tracks--) {
                 if (tracks == num_tracks - 1 - curr_track) {
-                        SDL_SetRenderDrawColor(renderer, 127, 255, 127, 255);
+                        if (write) {
+                                SDL_SetRenderDrawColor(renderer, 255, 127, 127, 255);
+                        } else {
+                                SDL_SetRenderDrawColor(renderer, 127, 255, 127, 255);
+                        }
                 } else {
                         SDL_SetRenderDrawColor(renderer, 90, 90, 90, 255);
 
                 }
                 sdl_draw_circle(renderer, x, y, (int)sr);
-                sr -= dr;
+                sr -= dr * 0.75;
         }
         SDL_SetRenderDrawColor(renderer, 150, 150, 100, 255);
+        sr -= dr * 6.0;
         sdl_draw_circle(renderer, x, y, (int)sr);
 }
 

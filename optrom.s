@@ -99,8 +99,8 @@ custom_int13:
 .fntable:
         dw reset                ; 00
         dw get_status           ; 01
-        dw read_sectors         ; 02
-        dw write_sectors        ; 03
+        dw read_sectors         ; 02    - implemented
+        dw write_sectors        ; 03    - implemented
         dw verify_sectors       ; 04
         dw format_track         ; 05
         dw format_track_bad     ; 06
@@ -215,7 +215,6 @@ read_sectors:
         jne .next_sec
         pop di
 
-
         pop dx
         pop cx
         pop ax
@@ -225,8 +224,52 @@ read_sectors:
         jmp custom_int13.exit
         
 write_sectors:
+        sti
+        push bp
+        push ax
+        push cx
+        push dx
+        push bx
+        push ax
         mov al, 'w'
         call write_s
+        pop ax          ; sectors to read
+        mov bp, ax
+        and bp, 0xFF
+        call write_s
+        mov al, ch      ; cylinder
+        call write_s
+        mov al, dh      ; head
+        call write_s
+        mov al, cl      ; sector
+        call write_s
+        pop bx
+        push ds
+        mov ax, es
+        mov ds, ax
+        push si
+        cld
+        mov si, bx
+.next_sec:
+        mov cx, 512
+.next_byte:
+        lodsb
+        push cx
+        call write_s
+        pop cx
+        loop .next_byte
+        dec bp
+        cmp bp, 0
+        jne .next_sec
+        pop si
+        pop ds
+
+        pop dx
+        pop cx
+        pop ax
+        pop bp
+        clc
+        mov ah, 0       ; return code
         jmp custom_int13.exit
 
 verify_sectors:

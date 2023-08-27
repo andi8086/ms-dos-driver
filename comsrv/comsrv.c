@@ -125,6 +125,59 @@ void floppy_seek(int cyl)
 }
 
 
+int write_sectors(int fd, FILE *diskfile, SDL_Renderer *renderer)
+{
+
+        uint8_t value;
+        int rl;
+        do {
+                rl = read(fd, &value, 1);
+        } while (rl != 1);
+
+        int num = value;
+
+        do {
+                rl = read(fd, &value, 1);
+        } while (rl != 1);
+
+        int cyl = value;
+
+        do {
+                rl = read(fd, &value, 1);
+        } while (rl != 1);
+
+        int head = value;
+
+        do {
+                rl = read(fd, &value, 1);
+        } while (rl != 1);
+
+        int sector = value;
+
+
+        char buffer[512];
+
+        printf("FDD: Write %d sectors from: CYL=%d, HEAD=%d, SEC=%d\n",
+               num, cyl, head, sector);
+
+        int lsector = (cyl * h.heads + head) * h.sectors_per_track +
+                      sector - 1;
+        fseek(diskfile, lsector * 512 + sizeof(h), SEEK_SET);
+        floppy_seek(cyl);
+        sdl_draw_floppy(renderer, 400, 300, 280, h.cylinders, cyl, true);
+        SDL_RenderPresent(renderer);
+        for (int j = 0; j < num; j++) {
+                for (int i = 0; i < 512; i++) {
+                        int wl;
+                        do {
+                                wl = read(fd, &buffer[i], 1);
+                        } while (wl != 1);
+                }
+                fwrite(buffer, 512, 1, diskfile);
+        }
+}
+
+
 int read_sectors(int fd, FILE *diskfile, SDL_Renderer *renderer)
 {
 
@@ -164,7 +217,7 @@ int read_sectors(int fd, FILE *diskfile, SDL_Renderer *renderer)
                       sector - 1;
         fseek(diskfile, lsector * 512 + sizeof(h), SEEK_SET);
         floppy_seek(cyl);
-        sdl_draw_floppy(renderer, 400, 300, 280, h.cylinders, cyl);
+        sdl_draw_floppy(renderer, 400, 300, 280, h.cylinders, cyl, false);
         SDL_RenderPresent(renderer);
         for (int j = 0; j < num; j++) {
                 fread(buffer, 512, 1, diskfile);
@@ -370,6 +423,8 @@ no_floppy_ui:
                 }
                 switch (cmd) {
                 case 'r': read_sectors(fd, diskfile, renderer); 
+                        break;
+                case 'w': write_sectors(fd, diskfile, renderer);
                         break;
                 case 'R': read_hdd(fd, hddfile);
                         break;
