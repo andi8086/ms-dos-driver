@@ -419,6 +419,8 @@ init:
         mov word [es:di + initreq.bpb_array], bpb_array
         mov word [es:di + initreq.bpb_array + 2], cs
 
+%ifdef COMSERINIT
+
         ; initialize serial port COM1
         mov ah, 0
         mov al, 11100011b       ;9600 baud  111
@@ -459,6 +461,7 @@ init:
         and al, 0x7F    ; disable divisor latch
         out dx, al
         sti             ; reenable ints
+%endif
         jmp interrupt.exit
 
 install_msg db 0Ah, 0Dh

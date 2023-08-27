@@ -118,7 +118,7 @@ int read_sectors(int fd, FILE *diskfile)
 
         char buffer[512];
 
-        printf("Read %d sectors from: CYL=%d, HEAD=%d, SEC=%d\n",
+        printf("FDD: Read %d sectors from: CYL=%d, HEAD=%d, SEC=%d\n",
                num, cyl, head, sector);
 
         int lsector = (cyl * h.heads + head) * h.sectors_per_track +
@@ -136,6 +136,97 @@ int read_sectors(int fd, FILE *diskfile)
                 }
         }
         printf("%u sectors sent\n", num);
+}
+
+
+void read_hdd(int fd, FILE *hddfile)
+{
+        uint16_t sector;
+        uint16_t count;
+        uint32_t pos;
+        uint8_t sector_low, sector_high, count_low, count_high;
+        int rlen;
+
+        char buffer[512];
+
+        do {
+                rlen = read(fd, &sector_low, 1);
+        } while (rlen == 0);
+        do {
+                rlen = read(fd, &sector_high, 1);
+        } while (rlen == 0);
+        do {
+                rlen = read(fd, &count_low, 1);
+        } while (rlen == 0);
+        do {
+                rlen = read(fd, &count_high, 1);
+        } while (rlen == 0);
+        sector = ((uint16_t)sector_high << 8) | sector_low;
+        count = ((uint16_t)count_high << 8) | count_low;
+        printf("HDD: read %d sectors, start = %u\n", count, sector);
+        pos = sector * 512;
+        uint8_t byte;
+     
+        byte = 'K';
+        write(fd, &byte, 1);
+
+        fseek(hddfile, pos, SEEK_SET);
+
+        do {
+                fread(buffer, 512, 1, hddfile);
+                /* transmit 512 bytes */
+                for (int i = 0; i < 512; i++) {
+                        while (write(fd, &buffer[i], 1)== 0);
+                }
+                count -= 1;
+        } while(count);
+
+}
+
+
+void write_hdd(int fd, FILE *hddfile)
+{
+        uint16_t sector;
+        uint16_t count;
+        uint32_t pos;
+        uint8_t sector_low, sector_high, count_low, count_high;
+        int rlen;
+
+        char buffer[512];
+        do {
+                rlen = read(fd, &sector_low, 1);
+        } while (rlen == 0);
+        do {
+                rlen = read(fd, &sector_high, 1);
+        } while (rlen == 0);
+        do {
+                rlen = read(fd, &count_low, 1);
+        } while (rlen == 0);
+        do {
+                rlen = read(fd, &count_high, 1);
+        } while (rlen == 0);
+        sector = ((uint16_t)sector_high << 8) | sector_low;
+        count = ((uint16_t)count_high << 8) | count_low;
+        printf("HDD: write %d sectors, start = %u\n", count, sector);
+        pos = sector * 512;
+        uint8_t byte;
+
+        byte = 'K';
+        write(fd, &byte, 1);
+
+        fseek(hddfile, pos, SEEK_SET);
+
+        do {
+                /* transmit 512 bytes */
+                for (int i = 0; i < 512; i++) {
+                        // usleep(500);
+                        while (read(fd, &buffer[i], 1) == 0);
+                }
+
+                fwrite(buffer, 512, 1, hddfile);
+
+                count -= 1;
+        } while(count);
 }
 
 
@@ -170,7 +261,7 @@ int main(int argc, char **argv)
         uint32_t pos = 0;
 
         FILE *diskfile = fopen(argv[2], "r+");
-
+        FILE *hddfile = fopen(argv[3], "r+");
         init_header(diskfile);
 
         do {
@@ -182,12 +273,16 @@ int main(int argc, char **argv)
                 switch (cmd) {
                 case 'r': read_sectors(fd, diskfile); 
                         break;
+                case 'R': read_hdd(fd, hddfile);
+                        break;
+                case 'W': write_hdd(fd, hddfile);
+                        break;
                 default:
                         printf("command: %c\n", (uint8_t)cmd);
                         break;
                 }
         } while (true);
-
+        fclose(hddfile);
         fclose(diskfile);
         close(fd);
         return 0;
