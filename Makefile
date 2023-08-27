@@ -21,6 +21,6 @@ READDEV.COM: readdev.s
 	mcopy -o -i dos.img $@ ::/
 
 OPTROM.BIN: optrom.s
-	yasm -p nasm $< -o $@ 
+	yasm -p nasm $< -o $@ -l optrom.lst
 	./cksum $@
 

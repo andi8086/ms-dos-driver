@@ -3,7 +3,7 @@
 org 0h
 
 boot_sig: DW 0AA55h
-rom_size: DB 1          ; multiple of 512 sectors
+rom_size: DB 2          ; multiple of 512 sectors
 
 start:
         push ax
@@ -24,6 +24,7 @@ start:
         xor ax, ax
         mov ds, ax
         mov es, ax
+
         mov ax, 13h
         shl ax, 1
         shl ax, 1
@@ -42,6 +43,25 @@ start:
         mov word [ds:si + 2], cs        ; install new int 13
 
         call init_com1  ; init COM1 to 19200 baud
+
+        mov ax, 14h
+        shl ax, 1
+        shl ax, 1
+        mov si, ax
+
+        mov ax, 79h
+        shl ax, 1
+        shl ax, 1
+        mov di, ax
+
+        cld
+        movsw           ; backup old int 0x14 to int 0x79
+        movsw
+        sub si, 4
+        mov word [ds:si], modint14
+        mov word [ds:si + 2], cs        ; install new int 14
+
+
 
         pop di
         pop si
@@ -73,6 +93,14 @@ modint13:
         cmp dl, 0               ; check for drive A access
         je custom_int13         ; call our BIOS
         int 78h                 ; call old int13
+        retf 2 
+
+modint14:
+        cmp ah, 0               ; does sb try to init a serial port?
+        jne old_int14           ; no, go on
+        iret                    ; yes, return
+old_int14:
+        int 79h
         iret
 
 custom_int13:
@@ -94,7 +122,7 @@ custom_int13:
         stc
 .return:
         pop si
-        iret
+        retf 2 
 
 .fntable:
         dw reset                ; 00
@@ -178,7 +206,7 @@ get_status:
         jmp custom_int13.exit
 
 read_sectors:
-        sti
+;        sti
         push bp
         push ax
         push cx
@@ -224,7 +252,7 @@ read_sectors:
         jmp custom_int13.exit
         
 write_sectors:
-        sti
+;        sti
         push bp
         push ax
         push cx
@@ -273,8 +301,9 @@ write_sectors:
         jmp custom_int13.exit
 
 verify_sectors:
-        mov al, 'V'
-        call write_s
+        ;mov al, 'V'
+        ;call write_s
+        mov ah, 0
         jmp custom_int13.exit
 
 format_track:
@@ -308,6 +337,6 @@ read_long_sectors:
         jmp custom_int13.exit
 
 
-section _cksum start=0x1FF align=1
+section _cksum start=0x3FF align=1
 cksum: DB 0
 
