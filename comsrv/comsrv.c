@@ -338,12 +338,14 @@ int main(int argc, char **argv)
                 return -1;
         }
 
-        grantpt(fd);
-        unlockpt(fd);
+        /* if pseudo console is used, unlock the slave */
+        if (strcmp(argv[1], "/dev/ptmx") == 0) { 
+                grantpt(fd);
+                unlockpt(fd);
 
-        char *slavename = ptsname(fd);
-        printf("pts slave: %s\n", slavename);
-
+                char *slavename = ptsname(fd);
+                printf("pts slave: %s\n", slavename);
+        }
         set_iface_attribs(fd, B19200, 0);
         set_blocking(fd, 1);
 
