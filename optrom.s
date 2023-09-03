@@ -44,25 +44,6 @@ start:
 
         call init_com1  ; init COM1 to 19200 baud
 
-        mov ax, 14h
-        shl ax, 1
-        shl ax, 1
-        mov si, ax
-
-        mov ax, 79h
-        shl ax, 1
-        shl ax, 1
-        mov di, ax
-
-        cld
-        movsw           ; backup old int 0x14 to int 0x79
-        movsw
-        sub si, 4
-        mov word [ds:si], modint14
-        mov word [ds:si + 2], cs        ; install new int 14
-
-
-
         pop di
         pop si
         pop es
@@ -94,14 +75,6 @@ modint13:
         je custom_int13         ; call our BIOS
         int 78h                 ; call old int13
         retf 2 
-
-modint14:
-        cmp ah, 0               ; does sb try to init a serial port?
-        jne old_int14           ; no, go on
-        iret                    ; yes, return
-old_int14:
-        int 79h
-        iret
 
 custom_int13:
         push si
@@ -140,34 +113,38 @@ custom_int13:
         dw init_drive_pair_props ; 09
         dw read_long_sectors    ; 0A
 
+;******************************************************
+        ; dx = port address
 write_s:
         push ax
         push dx
-        mov ah, 1
-        mov dx, 0
-        int 14h
+
+        add dx, 5
+wait_transmitter_empty:
+        in al, dx
+        test al, 20h
+        jz wait_transmitter_empty
         pop dx
         pop ax
+        out dx, al
         ret
 
+;******************************************************
+        ; dx = port address
 read_s:
         push dx
-        mov ah, 2
-        mov dx, 0
-        int 14h
+        add dx, 5 
+wait_for_data:
+        in al, dx
+        test al, 1
+        jz wait_for_data
         pop dx
+        in al, dx
         ret
 
+;******************************************************
 init_com1:
         ; initialize serial port COM1
-        mov ah, 0
-        mov al, 11100011b       ;9600 baud  111
-                                ;no parity  00
-                                ;one stop bit 0
-                                ;8bits      11
-        mov dx, 0
-        int 14h
-
         push ds
         push si
 
@@ -176,13 +153,27 @@ init_com1:
         mov si, 0h      ; point ds:si to BIOS data area
 
         lodsw           ; ax is COM1 port base
+                        ; remove COM1 port base from BDA,
+                        ; so that DOS does not detect it anymore
+
+        mov word [ds:si], 0 
+        
+        mov si, 0xF0    ; user reserved in BDA, should be usable,
+                        ;       if not, we have a problem
+        mov word [ds:si], ax
+                        ; now we stored COM1 port address at 40:F0,
+                        ;       comdrv.sys will get it from there
         pop si
         pop ds
-
-        add ax, 3
-        ; set baudrate to 19200 (which is impossible with BIOS)
-        cli             ; no ints while fiddling with baud rate
-        mov dx, ax 
+        inc ax
+        cli             ; we assume we have 3F8 in ax, will work
+                        ;       for other COM port addresses also
+        mov dx, ax      ; 3F9
+        mov al, 0
+        out dx, al      ; disable COM1 interrupts
+        inc dx
+        inc dx
+                        ; set baudrate to 19200
         in al, dx       ; read from 0x3FB
         or al, 0x80     ; enable divisor latch
         out dx, al
@@ -192,12 +183,16 @@ init_com1:
         inc dx          ; = 0x3F9
         xor al, al
         out dx, al
+
         inc dx
         inc dx          ; = 0x3FB
-        in al, dx
-        and al, 0x7F    ; disable divisor latch
+        mov al, 3       ; 8 data bits, 1 stop bit, no parity
         out dx, al
+        inc dx          ; = 0x3FC
+        xor al, al
+        out dx, al      ; clear DTR, RTS, out1, out2, loop
         sti             ; reenable ints
+
         ret
 
 ; ----------------------------------
@@ -208,6 +203,20 @@ reset:
 get_status:
         jmp custom_int13.exit
 
+load_com_base:
+        push ds
+        push ax
+        mov ax, 0x40
+        mov ds, ax
+        push si 
+        mov si, 0xF0
+        mov dx, word [ds:si]    ; dx = COM port base
+        pop si
+        pop ax
+        pop ds
+        ret
+
+
 read_sectors:
 ;        sti
         push bp
@@ -216,6 +225,9 @@ read_sectors:
         push dx
         push bx
         push ax
+
+        call load_com_base
+
         mov al, 'r'
         call write_s
         pop ax          ; sectors to read
@@ -224,7 +236,17 @@ read_sectors:
         call write_s
         mov al, ch      ; cylinder
         call write_s
+
+        ; we need saved dx here, which got overwritten by load_com_base
+        pop bx
+        pop dx
+        push dx
+        push bx
+
         mov al, dh      ; head
+      
+        call load_com_base
+
         call write_s
         mov al, cl      ; sector
         call write_s
@@ -262,6 +284,9 @@ write_sectors:
         push dx
         push bx
         push ax
+
+        call load_com_base
+
         mov al, 'w'
         call write_s
         pop ax          ; sectors to read
@@ -270,7 +295,18 @@ write_sectors:
         call write_s
         mov al, ch      ; cylinder
         call write_s
+
+        ; we need stored dx here which got overwritten by load_com_base
+
+        pop bx
+        pop dx
+        push dx
+        push bx
+
         mov al, dh      ; head
+
+        call load_com_base
+
         call write_s
         mov al, cl      ; sector
         call write_s
@@ -310,31 +346,37 @@ verify_sectors:
         jmp custom_int13.exit
 
 format_track:
+        call load_com_base
         mov al, 'F'
         call write_s
         jmp custom_int13.exit
         
 format_track_bad:
+        call load_com_base
         mov al, 'E'
         call write_s
         jmp custom_int13.exit
 
 format_drive_from_track:
+        call load_com_base
         mov al, 'f'
         call write_s
         jmp custom_int13.exit
         
 read_drive_params:
+        call load_com_base
         mov al, 'P'
         call write_s
         jmp custom_int13.exit
         
 init_drive_pair_props:
+        call load_com_base
         mov al, '2'
         call write_s
         jmp custom_int13.exit
 
 read_long_sectors:
+        call load_com_base
         mov al, 'L'
         call write_s
         jmp custom_int13.exit
