@@ -346,7 +346,10 @@ int main(int argc, char **argv)
                 char *slavename = ptsname(fd);
                 printf("pts slave: %s\n", slavename);
         }
-        set_iface_attribs(fd, B19200, 0);
+//        set_iface_attribs(fd, B19200, 0);
+        set_iface_attribs(fd, B115200, 0);
+//        set_iface_attribs(fd, B38400, 0);
+
         set_blocking(fd, 1);
 
         int rlen;

@@ -118,6 +118,8 @@ custom_int13:
         pop si
         retf 2 
 
+
+
 .fntable:
         dw reset                ; 00
         dw get_status           ; 01
@@ -196,7 +198,9 @@ init_com1:
         or al, 0x80     ; enable divisor latch
         out dx, al
         sub dx, 3       ; = 0x3F8
-        mov al, 6       ; 115200 / 19200 = 6
+        ;mov al, 6       ; 115200 / 19200 = 6
+        ;mov al, 3       ; 38400 baud
+        mov al, 1       ; 115200 baud
         out dx, al
         inc dx          ; = 0x3F9
         xor al, al
