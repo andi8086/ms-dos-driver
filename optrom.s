@@ -44,6 +44,24 @@ start:
 
         call init_com1  ; init COM1 to 19200 baud
 
+        mov ax, 14h
+        shl ax, 1
+        shl ax, 1
+        mov si, ax
+
+        mov ax, 79h
+        shl ax, 1
+        shl ax, 1
+        mov di, ax
+
+        cld 
+        movsw           ; backup old int 0x14 to int 0x79
+        movsw           ; override to prevent programs access to COM0
+
+        sub si, 4
+        mov word [ds:si], modint14
+        mov word [ds:si + 2], cs
+
         pop di
         pop si
         pop es
@@ -114,6 +132,15 @@ custom_int13:
         dw read_long_sectors    ; 0A
 
 ;******************************************************
+modint14:
+        cmp dx, 0       ; does sb try to access COM1 ?
+        jne old_int14
+        iret            
+old_int14:
+        int 79h
+        iret
+
+;******************************************************
         ; dx = port address
 write_s:
         push ax
@@ -153,16 +180,7 @@ init_com1:
         mov si, 0h      ; point ds:si to BIOS data area
 
         lodsw           ; ax is COM1 port base
-                        ; remove COM1 port base from BDA,
-                        ; so that DOS does not detect it anymore
 
-        mov word [ds:si], 0 
-        
-        mov si, 0xF0    ; user reserved in BDA, should be usable,
-                        ;       if not, we have a problem
-        mov word [ds:si], ax
-                        ; now we stored COM1 port address at 40:F0,
-                        ;       comdrv.sys will get it from there
         pop si
         pop ds
         inc ax
@@ -209,7 +227,7 @@ load_com_base:
         mov ax, 0x40
         mov ds, ax
         push si 
-        mov si, 0xF0
+        xor si, si
         mov dx, word [ds:si]    ; dx = COM port base
         pop si
         pop ax
