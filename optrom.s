@@ -223,25 +223,22 @@ read_sectors:
         push ax
         push cx
         push dx
-        push bx
-        push ax
+
+        mov bp, ax
+        and bp, 0xFF    ; sectors to read
 
         call load_com_base
-
         mov al, 'r'
         call write_s
-        pop ax          ; sectors to read
-        mov bp, ax
-        and bp, 0xFF
+        
+        mov ax, bp
         call write_s
         mov al, ch      ; cylinder
         call write_s
 
         ; we need saved dx here, which got overwritten by load_com_base
-        pop bx
         pop dx
         push dx
-        push bx
 
         mov al, dh      ; head
       
@@ -250,7 +247,6 @@ read_sectors:
         call write_s
         mov al, cl      ; sector
         call write_s
-        pop bx
 
         push di
         cld
@@ -282,26 +278,24 @@ write_sectors:
         push ax
         push cx
         push dx
-        push bx
-        push ax
+
+        mov bp, ax
+        and bp, 0xFF    ; sectors to write
 
         call load_com_base
 
         mov al, 'w'
         call write_s
-        pop ax          ; sectors to read
-        mov bp, ax
-        and bp, 0xFF
+       
+        mov ax, bp
         call write_s
         mov al, ch      ; cylinder
         call write_s
 
         ; we need stored dx here which got overwritten by load_com_base
 
-        pop bx
         pop dx
         push dx
-        push bx
 
         mov al, dh      ; head
 
@@ -310,7 +304,7 @@ write_sectors:
         call write_s
         mov al, cl      ; sector
         call write_s
-        pop bx
+
         push ds
         mov ax, es
         mov ds, ax
